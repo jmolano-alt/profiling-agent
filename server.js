@@ -86,7 +86,7 @@ app.use((req, res) => {
 
 // Iniciar servidor
 app.listen(PORT, () => {
-  console.log(`🚀 Profiling Agent running on port ${PORT}`);
+  console.log(`🚀 Profiling Agent v1.0 running on port ${PORT}`);
   console.log(`📍 Health check: http://localhost:${PORT}/health`);
   console.log(`🔍 Lookup endpoint: http://localhost:${PORT}/lookup`);
 });
