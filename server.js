@@ -20,6 +20,12 @@ const {
   INTELIUS_PASS,
 } = process.env;
 
+console.log('ENV CHECK', {
+  ROCKETREACH_USER: !!process.env.ROCKETREACH_USER,
+  ROCKETREACH_PASS: !!process.env.ROCKETREACH_PASS,
+});
+
+
 // Optional: fail fast on missing vars (prevents “envs viejos” confusion)
 const missing = [];
 if (!AGENT_API_KEY) missing.push('AGENT_API_KEY');
