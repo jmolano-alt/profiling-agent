@@ -1,4 +1,4 @@
-const { newContext } = require('../utils/browser');
+const { newContext } = require('../utils/browserHelper');
 
 const BASE = 'https://rocketreach.co/dashboard';
 const USER = process.env.ROCKETREACH_USER;
