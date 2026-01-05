@@ -11,7 +11,7 @@ const PASS = process.env.ROCKETREACH_PASS;
 let rrStorageState = null;
 
 function safeStr(v) {
-  return (v == null) ? '' : String(v).trim();
+  return v == null ? '' : String(v).trim();
 }
 
 function buildQuery(p = {}) {
@@ -22,6 +22,14 @@ function buildQuery(p = {}) {
   const state = safeStr(p.state);
 
   return email || phone || [name, city, state].filter(Boolean).join(' ').trim();
+}
+
+function safePageUrl(page) {
+  try {
+    return page.url(); // string
+  } catch (_) {
+    return 'unknown';
+  }
 }
 
 async function debugDump(page, tag = 'rr_debug') {
@@ -40,7 +48,6 @@ async function debugDump(page, tag = 'rr_debug') {
 }
 
 async function isDashboard(page) {
-  // Señales típicas de dashboard / sesión activa
   const dashboardSignals = [
     'text=/Recent Searches/i',
     'text=/Saved Searches/i',
@@ -58,7 +65,6 @@ async function isDashboard(page) {
 }
 
 async function isLoginPage(page) {
-  // Señales típicas de login
   const loginSignals = [
     'input[type="email"]',
     'input[name*="email" i]',
@@ -89,17 +95,15 @@ async function clickIfExists(page, selector, timeout = 2000) {
 }
 
 async function ensureLoggedIn(page) {
-  // 1) Ir al dashboard (si hay session, debería entrar)
+  // 1) Intentar dashboard directo
   await page.goto(RR_DASH, { waitUntil: 'domcontentloaded', timeout: 60000 }).catch(() => {});
   await page.waitForTimeout(800);
-
   if (await isDashboard(page)) return;
 
-  // 2) Si no estamos en dashboard, ir al home y buscar entry a login
+  // 2) Ir al home y buscar entrada a login
   await page.goto(RR_HOME, { waitUntil: 'domcontentloaded', timeout: 60000 }).catch(() => {});
   await page.waitForTimeout(800);
 
-  // Botones comunes de login (varían por UI)
   await clickIfExists(page, 'a:has-text("Log In")').catch(() => {});
   await clickIfExists(page, 'a:has-text("Login")').catch(() => {});
   await clickIfExists(page, 'a:has-text("Sign In")').catch(() => {});
@@ -107,17 +111,16 @@ async function ensureLoggedIn(page) {
   await clickIfExists(page, 'button:has-text("Login")').catch(() => {});
   await clickIfExists(page, 'button:has-text("Sign In")').catch(() => {});
 
-  // 3) Esperar que aparezca login o dashboard
+  // 3) Esperar login o dashboard
   const deadline = Date.now() + 45000;
   while (Date.now() < deadline) {
     if (await isDashboard(page)) return;
     if (await isLoginPage(page)) break;
     await page.waitForTimeout(800);
   }
-
   if (await isDashboard(page)) return;
 
-  // 4) Login con selectores tolerantes
+  // 4) Login tolerante
   const emailSel = 'input[type="email"], input[name*="email" i], input[placeholder*="email" i]';
   const passSel =
     'input[type="password"], input[name*="pass" i], input[placeholder*="pass" i], input[name="password"]';
@@ -127,52 +130,38 @@ async function ensureLoggedIn(page) {
 
   try {
     await email.waitFor({ timeout: 45000 });
-  } catch (e) {
+  } catch (_) {
     await debugDump(page, 'rr_no_email_input');
-    throw new Error(
-      `RocketReach login: no veo input email. URL=${await page.url().catch(() => 'unknown')}`
-    );
+    throw new Error(`RocketReach login: no veo input email. URL=${safePageUrl(page)}`);
   }
 
   await email.fill(USER);
   await pass.fill(PASS);
 
-  // Botón submit tolerante
   const submit = page
     .locator(
       'button[type="submit"], input[type="submit"], button:has-text("Log In"), button:has-text("Login"), button:has-text("Sign In")'
     )
     .first();
 
-  // Click + esperar navegación/estado
-  try {
-    await Promise.allSettled([
-      submit.click({ timeout: 15000 }),
-      page.waitForLoadState('networkidle', { timeout: 60000 }).catch(() => {}),
-    ]);
-  } catch (_) {
-    // si click falla, seguimos a validación
-  }
+  // Click + esperar red
+  await Promise.allSettled([
+    submit.click({ timeout: 15000 }).catch(() => {}),
+    page.waitForLoadState('networkidle', { timeout: 60000 }).catch(() => {}),
+  ]);
 
-  // 5) Confirmar dashboard (o al menos que salió del login)
+  // 5) Confirmar dashboard
   const deadline2 = Date.now() + 45000;
   while (Date.now() < deadline2) {
     if (await isDashboard(page)) return;
-    // si seguimos en login, puede ser error/captcha
     await page.waitForTimeout(1000);
   }
 
   await debugDump(page, 'rr_login_failed');
-  throw new Error(
-    `RocketReach login failed or blocked (captcha/selector). URL=${await page.url().catch(() => 'unknown')}`
-  );
+  throw new Error(`RocketReach login failed or blocked (captcha/selector). URL=${safePageUrl(page)}`);
 }
 
 async function runSearch(page, query) {
-  // RocketReach cambia mucho el placeholder; mejor buscar el input de búsqueda en dashboard.
-  // Estrategia:
-  // 1) Priorizar inputs con placeholders típicos.
-  // 2) Fallback: primer input visible en zona principal.
   const candidates = [
     'input[placeholder*="LinkedIn" i]',
     'input[placeholder*="Job Title" i]',
@@ -183,9 +172,8 @@ async function runSearch(page, query) {
 
   let q = null;
   for (const sel of candidates) {
-    const loc = page.locator(sel).filter({ hasNotText: '' }).first();
+    const loc = page.locator(sel).first();
     try {
-      // waitFor visible si existe
       await loc.waitFor({ timeout: 8000 });
       q = loc;
       break;
@@ -204,10 +192,26 @@ async function runSearch(page, query) {
 }
 
 async function extractSocialLinks(page) {
-  const firstLinkedIn = await page.locator('a[href*="linkedin.com"]').first().getAttribute('href').catch(() => null);
-  const firstFacebook = await page.locator('a[href*="facebook.com"]').first().getAttribute('href').catch(() => null);
-  const firstInstagram = await page.locator('a[href*="instagram.com"]').first().getAttribute('href').catch(() => null);
-  const firstX = await page.locator('a[href*="x.com"], a[href*="twitter.com"]').first().getAttribute('href').catch(() => null);
+  const firstLinkedIn = await page
+    .locator('a[href*="linkedin.com"]')
+    .first()
+    .getAttribute('href')
+    .catch(() => null);
+  const firstFacebook = await page
+    .locator('a[href*="facebook.com"]')
+    .first()
+    .getAttribute('href')
+    .catch(() => null);
+  const firstInstagram = await page
+    .locator('a[href*="instagram.com"]')
+    .first()
+    .getAttribute('href')
+    .catch(() => null);
+  const firstX = await page
+    .locator('a[href*="x.com"], a[href*="twitter.com"]')
+    .first()
+    .getAttribute('href')
+    .catch(() => null);
 
   return {
     linkedin: firstLinkedIn || '',
@@ -224,14 +228,12 @@ async function findSocialProfiles(parameters = {}) {
     throw new Error('RocketReach credentials missing (ROCKETREACH_USER/ROCKETREACH_PASS)');
   }
 
-  // newContext debe aceptar (storageState) y devolver un BrowserContext (Playwright)
   const context = await newContext(rrStorageState);
   const page = await context.newPage();
 
   try {
     await ensureLoggedIn(page);
 
-    // Guardar sesión para futuras ejecuciones (reduce logins)
     rrStorageState = await context.storageState().catch(() => rrStorageState);
 
     const query = buildQuery(parameters);
@@ -242,7 +244,6 @@ async function findSocialProfiles(parameters = {}) {
 
     return { query, social_links };
   } catch (e) {
-    // dump extra para debugging
     await debugDump(page, 'rr_exception');
     throw e;
   } finally {
@@ -251,4 +252,3 @@ async function findSocialProfiles(parameters = {}) {
 }
 
 module.exports = { findSocialProfiles };
-
