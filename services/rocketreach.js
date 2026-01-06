@@ -14,15 +14,20 @@ function safeStr(v) {
   return v == null ? '' : String(v).trim();
 }
 
-function buildQuery(p = {}) {
+function buildQueryMeta(p = {}) {
   const email = safeStr(p.email);
   const phone = safeStr(p.phone);
   const name = safeStr(p.name);
   const city = safeStr(p.city);
   const state = safeStr(p.state);
 
-  return email || phone || [name, city, state].filter(Boolean).join(' ').trim();
+  if (email) return { query: email, query_used: 'email' };
+  if (phone) return { query: phone, query_used: 'phone' };
+
+  const query = [name, city, state].filter(Boolean).join(' ').trim();
+  return { query, query_used: query ? 'name_city_state' : '' };
 }
+
 
 function safePageUrl(page) {
   try {
