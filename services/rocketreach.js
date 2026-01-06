@@ -241,13 +241,28 @@ async function findSocialProfiles(parameters = {}) {
 
     rrStorageState = await context.storageState().catch(() => rrStorageState);
 
-    const query = buildQuery(parameters);
-    if (!query) return { social_links: {}, query: '' };
+  const meta = buildQueryMeta(parameters);
+if (!meta.query) {
+  return {
+    social_links: {},
+    query: '',
+    debug: { query_used: '', query_value: '' }
+  };
+}
 
-    await runSearch(page, query);
-    const social_links = await extractSocialLinks(page);
+await runSearch(page, meta.query);
+const social_links = await extractSocialLinks(page);
 
-    return { query, social_links };
+return {
+  query: meta.query,
+  social_links,
+  debug: {
+    query_used: meta.query_used,
+    query_value: meta.query,
+    url: safePageUrl(page)
+  }
+};
+
   } catch (e) {
     await debugDump(page, 'rr_exception');
     throw e;
