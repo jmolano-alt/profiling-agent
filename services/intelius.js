@@ -1,52 +1,34 @@
 const browserHelper = require('../utils/browserHelper');
 
 async function findLocation(parameters) {
-  const { name, phone } = parameters;
-  
-  console.log(`[Intelius] Finding location for: ${name}`);
-  
-  // PLACEHOLDER - Retorna datos de prueba
-  return {
-    current_address: {
-      street: '123 Main St',
-      city: 'Miami',
-      state: 'FL',
-      zip: '33101',
-      country: 'USA'
-    },
-    previous_addresses: [],
-    household_members: [],
-    note: 'PLACEHOLDER - Replace with real scraping'
-  };
+  const { name, phone, email } = parameters;
+
+  console.log(`[Intelius] findLocation called for: ${name || ''} ${phone || ''}`);
+
+  // MVP: no scraping real todavía
+  // Devolvemos vacío real
+  return {};
 }
 
 async function findSocialLinks(parameters) {
-  const { name, phone } = parameters;
-  
-  console.log(`[Intelius] Finding social links for: ${name}`);
-  
+  const { name, phone, email } = parameters;
+
+  console.log(`[Intelius] findSocialLinks called for: ${name || ''} ${phone || ''}`);
+
+  // MVP: sin scraping real
   return {
-    social_profiles: [],
-    note: 'PLACEHOLDER - Replace with real scraping'
+    social_profiles: []
   };
 }
 
 async function findAssets(parameters) {
   const { name, last_name } = parameters;
-  
-  console.log(`[Intelius] Finding assets for: ${name}`);
-  
+
+  console.log(`[Intelius] findAssets called for: ${name || ''}`);
+
+  // MVP: sin scraping real
   return {
-    assets: [
-      {
-        type: 'property',
-        address: '123 Main St, Miami, FL',
-        ownership: 'John Doe',
-        value_estimate: '$500,000',
-        purchase_date: '2020-01-15'
-      }
-    ],
-    note: 'PLACEHOLDER - Replace with real scraping'
+    assets: []
   };
 }
 
